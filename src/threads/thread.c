@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <random.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "threads/flags.h"
 #include "threads/interrupt.h"
@@ -368,18 +369,19 @@ thread_set_specific_priority (struct thread* t, int new_priority)
 int
 thread_get_specific_priority (struct thread* t) 
 {
-  if(t->donationList == NULL)
+	struct list_elem* iter = list_begin( &(t->donation_list) );
+  if(iter != NULL)
   {
     int largestPriority = 0;
-    struct donation* iter = t->donationList;
+    
     do
     {
-      int p = thread_get_specific_priority(iter->donator);
+      int p = thread_get_specific_priority( list_entry (iter, struct donation, elem)->donator );
       if(p>largestPriority)
       {
         largestPriority = p;
       }
-      iter = iter->next;
+      iter = list_next( iter );
     } while(iter != NULL);
     return largestPriority;
   }
@@ -509,6 +511,8 @@ init_thread (struct thread *t, const char *name, int priority)
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);
+  
+  list_init( &(t->donation_list) );
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
@@ -625,16 +629,15 @@ allocate_tid (void)
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 
-void addDonation(struct donation* d, struct donation* head)
+void add_donation(struct list* donation_list, struct thread *donator )
 {
-  d->prev = head;
-  head = d;
+	struct donation* d = (struct donation*) malloc( sizeof( struct donation) );
+	d->donator = donator;
+  list_push_back( donation_list, &(d->elem) );
 }
 
-void removeDonation(struct donation* d)
+void remove_donation( struct donation *donator )
 {
-  d->prev->next = d->next;
-  d->next->prev = d->prev;
-  free(d);
+	list_remove( &(donator->elem) );
 }
 

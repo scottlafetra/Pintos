@@ -11,6 +11,16 @@ struct semaphore
     struct list waiters;        /* List of waiting threads. */
     struct list holders;        /* List of holding threads, for donation. */
   };
+  
+struct sema_holder
+{
+  struct thread* holder;
+  struct list_elem elem;
+};
+
+/* Sema hold list functions. */
+void add_sema_hold( struct semaphore *sema, struct thread *holder );
+void remove_sema_hold( struct semaphore *sema, struct thread *holder );
 
 void sema_init (struct semaphore *, unsigned value);
 void sema_down (struct semaphore *);

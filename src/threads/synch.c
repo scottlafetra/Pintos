@@ -48,6 +48,7 @@ sema_init (struct semaphore *sema, unsigned value)
 
   sema->value = value;
   list_init (&sema->waiters);
+  list_init (&sema->holders);
 }
 
 /* Down or "P" operation on a semaphore.  Waits for SEMA's value
@@ -67,10 +68,20 @@ sema_down (struct semaphore *sema)
 
   old_level = intr_disable ();
   while (sema->value == 0) 
-    {
-      list_push_back (&sema->waiters, &thread_current ()->elem);
-      thread_block ();
+  {
+    list_push_back (&sema->waiters, &thread_current ()->elem);
+    
+    /* Donate to all holders */
+    struct list_elem* iter = list_begin( &sema->holders );
+    while(iter != NULL)
+    { 
+      add_donation(&list_entry (iter, struct thread, sema_elem)->donation_list, thread_current ());
+      
+      iter = iter->next;
     }
+    
+    thread_block ();
+  }
   sema->value--;
   intr_set_level (old_level);
 }
@@ -113,9 +124,27 @@ sema_up (struct semaphore *sema)
   ASSERT (sema != NULL);
 
   old_level = intr_disable ();
-  if (!list_empty (&sema->waiters)) 
+  list_remove( &thread_current()->sema_elem );
+  
+  if (!list_empty (&sema->waiters))
+  {
+    struct thread *to_wake = list_entry (list_pop_front (&sema->waiters),
+                                struct thread, elem);
+    
+    struct list_elem* iter = list_begin( &(thread_current ()->donation_list) );
+    while(iter != NULL)
+    { 
+      if(list_entry (iter, struct donation, elem)->donator == thread_current ())
+      {
+        remove_donation(list_entry (iter, struct donation, elem));
+      }
+      
+      iter = iter->next;
+    }
+    
     thread_unblock (list_entry (list_pop_front (&sema->waiters),
                                 struct thread, elem));
+  }
   sema->value++;
   intr_set_level (old_level);
 }
@@ -217,10 +246,7 @@ lock_try_acquire (struct lock *lock)
   success = sema_try_down (&lock->semaphore);
   if (success)
     lock->holder = thread_current ();
-  else //if we fail we donate our priority
-  {
-    add_donation(&lock->holder->donation_list, lock, thread_current ());
-  }
+    
   return success;
 }
 
@@ -237,24 +263,7 @@ lock_release (struct lock *lock)
 
   lock->holder = NULL;
   sema_up (&lock->semaphore);
-  struct list_elem* iter = list_begin( &(thread_current ()->donation_list) );
-  while(iter != NULL)
-  { 
-    if(list_entry (iter, struct donation, elem)->wait_lock == lock)
-    {
-      if(iter->next != NULL)
-      {
-        iter = list_next( iter );
-        remove_donation(list_entry (iter, struct donation, elem));
-      }
-      else
-      {
-        remove_donation(list_entry (iter, struct donation, elem));
-      }
-      break;
-    }
-    iter = iter->next;
-  } 
+   
 }
 
 /* Returns true if the current thread holds LOCK, false

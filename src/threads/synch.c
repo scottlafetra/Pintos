@@ -217,12 +217,9 @@ lock_try_acquire (struct lock *lock)
   success = sema_try_down (&lock->semaphore);
   if (success)
     lock->holder = thread_current ();
-  else //if we fail and the other thread has less priority we donate our priority
+  else //if we fail we donate our priority
   {
-    if(lock->holder->priority < thread_current ())
-    {
-      add_donation(&lock->holder->donation_list, lock, thread_current ());
-    }
+    add_donation(&lock->holder->donation_list, lock, thread_current ());
   }
   return success;
 }
@@ -245,18 +242,18 @@ lock_release (struct lock *lock)
   { 
     if(list_entry (iter, struct donation, elem)->wait_lock == lock)
     {
-      if(list_next(iter) != NULL)
+      if(iter->next != NULL)
       {
         iter = list_next( iter );
-        remove_donation(list_prev(iter));
+        remove_donation(list_entry (iter, struct donation, elem));
       }
       else
       {
-        remove_donation(iter);
+        remove_donation(list_entry (iter, struct donation, elem));
       }
       break;
     }
-    iter = list_next( iter );
+    iter = iter->next;
   } 
 }
 

@@ -354,37 +354,7 @@ thread_set_priority (int new_priority)
 int
 thread_get_priority (void) 
 {
-  return thread_get_specific_priority (thread_current ());
-}
-
-/* Sets the current thread's priority to NEW_PRIORITY. */
-void
-thread_set_specific_priority (struct thread* t, int new_priority) 
-{
-  t->priority = new_priority;
-}
-
-/* Returns the current thread's priority. */
-int
-thread_get_specific_priority (struct thread* t) 
-{
-  if(t->donationList == NULL)
-  {
-    int largestPriority = 0;
-    struct donation* iter = t->donationList;
-    do
-    {
-      int p = thread_get_specific_priority(iter->donator);
-      if(p>largestPriority)
-      {
-        largestPriority = p;
-      }
-      iter = iter->next;
-    } while(iter != NULL);
-    return largestPriority;
-  }
-
-  return t->priority;
+  return thread_current ()->priority;
 }
 
 /* Sets the current thread's nice value to NICE. */
@@ -624,17 +594,3 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
-
-void addDonation(struct donation* d, struct donation* head)
-{
-  d->prev = head;
-  head = d;
-}
-
-void removeDonation(struct donation* d)
-{
-  d->prev->next = d->next;
-  d->next->prev = d->prev;
-  free(d);
-}
-

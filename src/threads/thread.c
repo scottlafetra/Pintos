@@ -180,6 +180,8 @@ tid_t
 thread_create (const char *name, int priority,
                thread_func *function, void *aux) 
 {
+  printf("DEBUG: Creating thread at priority %i\n", priority);
+
   struct thread *t;
   struct kernel_thread_frame *kf;
   struct switch_entry_frame *ef;
@@ -215,7 +217,6 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
   
-  printf("DEBUG: Created thread at priority %i I am at %i\n", t->priority, thread_get_priority());
   /* In case new thread is higher priority */
   if( priority > thread_get_priority() )
   {
@@ -655,10 +656,11 @@ allocate_tid (void)
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 
-void add_donation(struct list* donation_list, struct thread *donator )
+void add_donation(struct list* donation_list, struct lock* l, struct thread *donator )
 {
   printf("DEBUG: Adding donation\n");
 	struct donation* d = (struct donation*) malloc( sizeof( struct donation) );
+        d->wait_lock = l;
 	d->donator = donator;
   list_push_back( donation_list, &(d->elem) );
 }

@@ -31,38 +31,6 @@
 #include <string.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
-#include "threads/malloc.h"
-
-void
-add_sema_hold( struct semaphore *sema, struct thread *holder )
-{
-  struct sema_holder *hold = (struct sema_holder *) malloc( sizeof( struct sema_holder ) );
-  hold->holder= holder;
-  list_push_back( &sema->holders, &hold->elem );
-}
-
-void
-remove_sema_hold( struct semaphore *sema, struct thread *holder )
-{
-  /* Find the element to remove */
-  struct list_elem* iter = list_begin( &sema->holders );
-  struct sema_holder *hold = NULL;
-  while(iter != NULL)
-  { 
-    if( list_entry (iter, struct sema_holder, elem)->holder == holder )
-    {
-      hold = list_entry (iter, struct sema_holder, elem);
-      break;
-    }
-    
-    iter = iter->next;
-  }
-  
-  list_remove( iter );
-  free( hold );
-}
-
-
 
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
@@ -73,7 +41,6 @@ remove_sema_hold( struct semaphore *sema, struct thread *holder )
 
    - up or "V": increment the value (and wake up one waiting
      thread, if any). */
-     
 void
 sema_init (struct semaphore *sema, unsigned value) 
 {
@@ -108,7 +75,7 @@ sema_down (struct semaphore *sema)
     struct list_elem* iter = list_begin( &sema->holders );
     while(iter != NULL)
     { 
-      add_donation(&list_entry (iter, struct sema_holder, elem)->holder->donation_list, thread_current ());
+      add_donation(&list_entry (iter, struct thread, sema_elem)->donation_list, thread_current ());
       
       iter = iter->next;
     }
@@ -116,7 +83,6 @@ sema_down (struct semaphore *sema)
     thread_block ();
   }
   sema->value--;
-  add_sema_hold( sema, thread_current() );
   intr_set_level (old_level);
 }
 
@@ -158,10 +124,13 @@ sema_up (struct semaphore *sema)
   ASSERT (sema != NULL);
 
   old_level = intr_disable ();
-  remove_sema_hold( sema, thread_current() );
+  list_remove( &thread_current()->sema_elem );
   
   if (!list_empty (&sema->waiters))
   {
+    struct thread *to_wake = list_entry (list_pop_front (&sema->waiters),
+                                struct thread, elem);
+    
     struct list_elem* iter = list_begin( &(thread_current ()->donation_list) );
     while(iter != NULL)
     { 

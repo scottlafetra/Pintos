@@ -9,7 +9,6 @@
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
 #include "threads/palloc.h"
-#include "threads/malloc.h"
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
@@ -180,8 +179,6 @@ tid_t
 thread_create (const char *name, int priority,
                thread_func *function, void *aux) 
 {
-  printf("DEBUG: Creating thread at priority %i\n", priority);
-
   struct thread *t;
   struct kernel_thread_frame *kf;
   struct switch_entry_frame *ef;
@@ -216,12 +213,6 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
-  
-  /* In case new thread is higher priority */
-  if( priority > thread_get_priority() )
-  {
-    thread_yield();
-  }
 
   return tid;
 }
@@ -357,7 +348,7 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  thread_set_specific_priority ( thread_current (), new_priority);
+  thread_current ()->priority = new_priority;
 }
 
 /* Returns the current thread's priority. */
@@ -371,48 +362,30 @@ thread_get_priority (void)
 void
 thread_set_specific_priority (struct thread* t, int new_priority) 
 {
-  printf("DEBUG: Setting priority from %i to %i.\n", t->priority, new_priority);
   t->priority = new_priority;
-  
-  /* In case new thread is higher priority */
-  if( new_priority > thread_get_priority() )
-  {
-    thread_yield();
-  }
 }
 
 /* Returns the current thread's priority. */
 int
 thread_get_specific_priority (struct thread* t) 
 {
-  
-  if(!list_empty( &(t->donation_list) ) )
+  struct list_elem* iter = list_begin( &(t->donation_list) );
+  if(iter != NULL)
   {
-    struct list_elem* iter = list_begin( &(t->donation_list) );
-    /* set ourselves as largest priority in case we are */
-    int largestPriority = t->priority;
+    int largestPriority = 0;
     
-    while( true )
+    do
     {
       int p = thread_get_specific_priority( list_entry (iter, struct donation, elem)->donator );
       if(p>largestPriority)
       {
         largestPriority = p;
       }
-      
-      /* If this was the last element */
-      if( iter->next == NULL )
-      {
-        break;
-      }
-
       iter = list_next( iter );
-    }
-    //printf("DEBUG: Returning donated priority %i, unmodified is: %i, name is: %s\n", largestPriority, t->priority, t->name);
+    } while(iter != NULL);
     return largestPriority;
   }
 
-  //printf("DEBUG: Returning unmodified priority %i\n", t->priority);
   return t->priority;
 }
 
@@ -658,7 +631,6 @@ uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 
 void add_donation(struct list* donation_list, struct lock* l, struct thread *donator )
 {
-  printf("DEBUG: Adding donation\n");
 	struct donation* d = (struct donation*) malloc( sizeof( struct donation) );
         d->wait_lock = l;
 	d->donator = donator;
@@ -667,7 +639,6 @@ void add_donation(struct list* donation_list, struct lock* l, struct thread *don
 
 void remove_donation( struct donation *don )
 {
-  printf("DEBUG: Removing donation\n");
 	list_remove( &(don->elem) );
 }
 

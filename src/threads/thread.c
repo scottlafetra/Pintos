@@ -369,7 +369,7 @@ thread_set_specific_priority (struct thread* t, int new_priority)
 int
 thread_get_specific_priority (struct thread* t) 
 {
-  struct list_elem* iter = list_begin( &(t->donation_list) );
+	struct list_elem* iter = list_begin( &(t->donation_list) );
   if(iter != NULL)
   {
     int largestPriority = 0;
@@ -629,16 +629,15 @@ allocate_tid (void)
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 
-void add_donation(struct list* donation_list, struct lock* l, struct thread *donator )
+void add_donation(struct list* donation_list, struct thread *donator )
 {
 	struct donation* d = (struct donation*) malloc( sizeof( struct donation) );
-        d->wait_lock = l;
 	d->donator = donator;
   list_push_back( donation_list, &(d->elem) );
 }
 
-void remove_donation( struct donation *don )
+void remove_donation( struct donation *donator )
 {
-	list_remove( &(don->elem) );
+	list_remove( &(donator->elem) );
 }
 

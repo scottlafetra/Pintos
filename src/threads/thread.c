@@ -11,6 +11,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "devices/timer.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -53,6 +54,7 @@ static long long user_ticks;    /* # of timer ticks in user programs. */
 /* Scheduling. */
 #define TIME_SLICE 4            /* # of timer ticks to give each thread. */
 static unsigned thread_ticks;   /* # of timer ticks since last yield. */
+static int last_load_avg;       /* Last load avg multiplied by 100 */
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
@@ -110,6 +112,8 @@ thread_init (void)
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
+  
+  last_load_avg = 0;
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -135,6 +139,25 @@ void
 thread_tick (void) 
 {
   struct thread *t = thread_current ();
+  
+  /* Update mlfqs */
+  if( thread_mlfqs )
+  {
+    thread_current()->recent_cpu++;
+  
+    /* Every second */
+    if( timer_ticks() % TIMER_FREQ == 0 )
+    {
+      thread_calc_load_avg();
+      thread_calc_recent_cpu();
+    }
+    
+    /* Every 4th tick */
+    if( timer_ticks() % 4 == 0 )
+    {
+      thread_calc_priority();
+    }
+  }
 
   /* Update statistics. */
   if (t == idle_thread)
@@ -349,6 +372,21 @@ thread_foreach (thread_action_func *func, void *aux)
     }
 }
 
+/* Calculates priority for mlfqs */
+void
+thread_calc_priority (void) 
+{
+  int new_priority = PRI_MAX 
+                      - (thread_current()->recent_cpu / 4.0f) 
+                      - thread_current()->niceness * 2;
+                      
+  /* Clamp to priority bounds */
+  if( new_priority > PRI_MAX ) { new_priority = PRI_MAX; }
+  if( new_priority < PRI_MIN ) { new_priority = PRI_MIN; }                     
+  
+  thread_set_priority( new_priority );
+}
+
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) 
@@ -372,34 +410,69 @@ thread_get_priority (void)
 
 /* Sets the current thread's nice value to NICE. */
 void
-thread_set_nice (int nice UNUSED) 
+thread_set_nice (int nice) 
 {
-  /* Not yet implemented. */
+  ASSERT( nice >= NICE_MIN );
+  ASSERT( nice <= NICE_MAX );
+
+  thread_current()->niceness = nice;
 }
 
 /* Returns the current thread's nice value. */
 int
 thread_get_nice (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return thread_current()->niceness;
+}
+
+/* Called every second */
+void
+thread_calc_load_avg (void) 
+{
+  /* ready list -1(idle doesn't count) +1(count current thread) = no modifier*/
+  last_load_avg = (59.0f/60)*last_load_avg + (1.0f/60)*list_size( &ready_list );
 }
 
 /* Returns 100 times the system load average. */
 int
 thread_get_load_avg (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return last_load_avg;
 }
 
-/* Returns 100 times the current thread's recent_cpu value. */
+/* Calculates 100 times the system load average for a given thread. */
+void
+thread_calc_recent_cpu_for(struct thread *t)
+{
+  float cpu_scale = (2*last_load_avg)/(2*last_load_avg + 1);
+  t->recent_cpu = (int) 100*(cpu_scale*t->recent_cpu + t->niceness);
+}
+
+/* Calculates 100 times the system load average for all threads. */
+void
+thread_calc_recent_cpu(void)
+{
+  /* Don't do this if idling */
+  if( thread_current()->tid == 1 ) { return; }
+  
+  thread_calc_recent_cpu_for( thread_current() );
+  
+  /* calc recent cpu for everything on the thread current, minus the idle */
+  struct list_elem *iter = list_begin( &ready_list );
+  while( iter->next != NULL ) /* The idle is always the last elem */
+  {
+    thread_calc_recent_cpu_for( list_entry( iter, struct thread, elem ) );
+    iter = iter->next;
+  }
+}
+
+/* Returns the current thread's recent_cpu value. */
 int
 thread_get_recent_cpu (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return thread_current()->recent_cpu;
 }
+
 
 /* Idle thread.  Executes when no other thread is ready to run.
 
@@ -486,8 +559,20 @@ init_thread (struct thread *t, const char *name, int priority)
   t->status = THREAD_BLOCKED;
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
-  t->priority = priority;
   t->magic = THREAD_MAGIC;
+  
+  if( thread_mlfqs )
+  {
+    /* Niceness is inherited */
+    t->niceness = thread_current()->niceness;
+    
+    t->recent_cpu = 0;
+    thread_calc_priority();
+  }
+  else
+  {
+    t->priority = priority;
+  }
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -607,3 +692,5 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+

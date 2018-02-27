@@ -133,6 +133,9 @@ No this assignment was VERY specific on what it wanted.
 >> C4: How is the way you divided the cost of scheduling between code
 >> inside and outside interrupt context likely to affect performance?
 
+most of our code runs without interrupts, but it is pretty lightweight
+so it shoulden't cause to many issues.
+
 ---- RATIONALE ----
 
 >> C5: Briefly critique your design, pointing out advantages and
@@ -156,6 +159,9 @@ to a simplified round robin aproach.
 >> abstraction layer for fixed-point math, that is, an abstract data
 >> type and/or a set of functions or macros to manipulate fixed-point
 >> numbers, why did you do so?  If not, why not?
+
+We implemented fixed point arithmetic by multiplying virtually all 
+constants by 100. It's a janky solution, but it should technically work.
 
 			   SURVEY QUESTIONS
 			   ================

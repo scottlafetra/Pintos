@@ -377,7 +377,7 @@ void
 thread_calc_priority (void) 
 {
   int new_priority = PRI_MAX 
-                      - (thread_current()->recent_cpu / 4.0f) 
+                      - (thread_current()->recent_cpu / 4) 
                       - thread_current()->niceness * 2;
                       
   /* Clamp to priority bounds */
@@ -430,7 +430,7 @@ void
 thread_calc_load_avg (void) 
 {
   /* ready list -1(idle doesn't count) +1(count current thread) = no modifier*/
-  last_load_avg = (59.0f/60)*last_load_avg + (1.0f/60)*list_size( &ready_list );
+  last_load_avg = ((5900/60)*last_load_avg + (10000/60)*list_size( &ready_list ))*100;
 }
 
 /* Returns 100 times the system load average. */
@@ -444,8 +444,8 @@ thread_get_load_avg (void)
 void
 thread_calc_recent_cpu_for(struct thread *t)
 {
-  float cpu_scale = (2*last_load_avg)/(2*last_load_avg + 1);
-  t->recent_cpu = (int) 100*(cpu_scale*t->recent_cpu + t->niceness);
+  int cpu_scale = (2*last_load_avg)/(2*last_load_avg + 1);
+  t->recent_cpu = (cpu_scale*t->recent_cpu + 100*t->niceness)/100;
 }
 
 /* Calculates 100 times the system load average for all threads. */

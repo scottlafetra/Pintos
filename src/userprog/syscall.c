@@ -6,6 +6,14 @@
 
 static void syscall_handler (struct intr_frame *);
 
+struct file_descriptor_node{//index is fd
+  uint32_t* fd;
+  uint32_t* pid_t;
+  uint32_t* pd;
+};
+
+static struct list fd_list;
+
 /* System Call Functions */
 void halt();
 void exit(int status);
@@ -24,6 +32,7 @@ void close(int fd);
 void
 syscall_init (void) 
 {
+  list_init (&fd_list);
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
@@ -88,7 +97,19 @@ void exit(int status)
 
 pid_t exec(const char* cmd_line)
 {
-  //TODO
+  const char delim[2] = " ";
+  char* token = strtok(cmd_line, delim);
+  char* commandToRun = token;
+  char** args;
+  
+  int i = 0;
+  while( token != NULL ) {
+      args[i] = token;
+      token = strtok(NULL, s);
+      i++;
+   }
+   
+   //run command args
 }
 
 pid_t wait(pid_t pid)
@@ -108,7 +129,21 @@ bool remove(const char *file)
 
 int open(const char *file)
 {
-  //TODO
+  int i = 2;
+  
+  struct list_elem *e;
+
+  ASSERT (intr_get_level () == INTR_OFF);
+
+  for (e = list_begin (&all_list); e != list_end (&all_list); e = list_next (e))
+    {
+      struct file_descriptor_node *fdn = list_entry (e, struct thread, allelem);
+      if(fdn != i){
+      }
+      
+    }
+  
+  //Create list entry with 
 }
 
 int filesize(int fd)

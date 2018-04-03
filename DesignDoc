@@ -1,16 +1,15 @@
-	                +--------------------+
-			|        CS 320      |
-			| PROJECT 1: THREADS |
-			|   DESIGN DOCUMENT  |
-			+--------------------+
-				   
+		     +--------------------------+
+       	       	     |		CS 140		|
+		     | PROJECT 2: USER PROGRAMS	|
+		     | 	   DESIGN DOCUMENT     	|
+		     +--------------------------+
+
 ---- GROUP ----
 
 >> Fill in the names and email addresses of your group members.
 
-Alex Riley <alexanderriley@comcast.net>
-Scott La Fetra <scottlafetra@protonmail.com>
-Antonio Rodriguez <email@domain.example>
+Alex Riley
+Scott La Fetra
 
 ---- PRELIMINARIES ----
 
@@ -21,8 +20,8 @@ Antonio Rodriguez <email@domain.example>
 >> preparing your submission, other than the Pintos documentation, course
 >> text, lecture notes, and course staff.
 
-			     ALARM CLOCK
-			     ===========
+			   ARGUMENT PASSING
+			   ================
 
 ---- DATA STRUCTURES ----
 
@@ -32,27 +31,36 @@ Antonio Rodriguez <email@domain.example>
 
 ---- ALGORITHMS ----
 
->> A2: Briefly describe what happens in a call to timer_sleep(),
->> including the effects of the timer interrupt handler.
+>> A2: Briefly describe how you implemented argument parsing.  How do
+>> you arrange for the elements of argv[] to be in the right order?
+>> How do you avoid overflowing the stack page?
 
->> A3: What steps are taken to minimize the amount of time spent in
->> the timer interrupt handler?
+When the user page is initially created, each command line argument is pushed
+onto the stack, then a list of pointers is pushed onto the stack in reverse 
+order (argv[]), followed by argc. This is so that the filename can easilly be 
+found from the stack pointer. (esp - 1)
 
----- SYNCHRONIZATION ----
-
->> A4: How are race conditions avoided when multiple threads call
->> timer_sleep() simultaneously?
-
->> A5: How are race conditions avoided when a timer interrupt occurs
->> during a call to timer_sleep()?
+To avoid overflowing the stack page, a check is made to make sure that all the
+arguments can fit inside the inital page at creation-time.
 
 ---- RATIONALE ----
 
->> A6: Why did you choose this design?  In what ways is it superior to
->> another design you considered?
+>> A3: Why does Pintos implement strtok_r() but not strtok()?
 
-			 PRIORITY SCHEDULING
-			 ===================
+strtok includes state information, namely where in the string the last token ended,
+while strtok_r does not. If pintos implemented strtok, it would have to have a
+struct holding user program state info, which it does not.
+
+>> A4: In Pintos, the kernel separates commands into a executable name
+>> and arguments.  In Unix-like systems, the shell does this
+>> separation.  Identify at least two advantages of the Unix approach.
+
+- It gives each shell the ability to tokenize diffrently which is important for shells
+that allow the user to pipe multiple commands together in one line.
+- Doens't waste time in the kernal thread so the kernal can be doing more important things.
+
+			     SYSTEM CALLS
+			     ============
 
 ---- DATA STRUCTURES ----
 
@@ -60,107 +68,133 @@ Antonio Rodriguez <email@domain.example>
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
->> B2: Explain the data structure used to track priority donation.
->> Use ASCII art to diagram a nested donation.  (Alternately, submit a
->> .png file.)
+// Got an array of these somewhere, file id is the index + 2
+struct file_entry
+{
+	int user_id;
+	struct file*;
+}
+
+>> B2: Describe how file descriptors are associated with open files. (see above)
+>> Are file descriptors unique within the entire OS or just within a
+>> single process?
+
+Unique through whole OS.
 
 ---- ALGORITHMS ----
 
->> B3: How do you ensure that the highest priority thread waiting for
->> a lock, semaphore, or condition variable wakes up first?
+>> B3: Describe your code for reading and writing user data from the
+>> kernel.
 
-The ready_list is always in a sorted state (highest to lowest priorit)
-so the first element is always the correct one to wake.
+Reading:
+Copies x bytes or less to the user space, ending either when we write
+all the requested bytes have been written or we reach the end of file.
 
->> B4: Describe the sequence of events when a call to lock_acquire()
->> causes a priority donation.  How is nested donation handled?
+Writing:
+Copies x bytes into the kernal space in the file system where x is the
+number of bytes that the user requested.
 
+Both:
+Lookup on the file data table to make sure the user program owns that
+open file and that it is open.
 
+>> B4: Suppose a system call causes a full page (4,096 bytes) of data
+>> to be copied from user space into the kernel.  What is the least
+>> and the greatest possible number of inspections of the page table
+>> (e.g. calls to pagedir_get_page()) that might result?  What about
+>> for a system call that only copies 2 bytes of data?  Is there room
+>> for improvement in these numbers, and how much?
 
->> B5: Describe the sequence of events when lock_release() is called
->> on a lock that a higher-priority thread is waiting for.
+Twice at most for both cases assuming that the user iterates through
+the data once.
+
+>> B5: Briefly describe your implementation of the "wait" system call
+>> and how it interacts with process termination.
+
+Call a conditional malloc on the file completing.
+
+>> B6: Any access to user program memory at a user-specified address
+>> can fail due to a bad pointer value.  Such accesses must cause the
+>> process to be terminated.  System calls are fraught with such
+>> accesses, e.g. a "write" system call requires reading the system
+>> call number from the user stack, then each of the call's three
+>> arguments, then an arbitrary amount of user memory, and any of
+>> these can fail at any point.  This poses a design and
+>> error-handling problem: how do you best avoid obscuring the primary
+>> function of code in a morass of error-handling?  Furthermore, when
+>> an error is detected, how do you ensure that all temporarily
+>> allocated resources (locks, buffers, etc.) are freed?  In a few
+>> paragraphs, describe the strategy or strategies you adopted for
+>> managing these issues.  Give an example.
+
+Returns -1. Works on my computer.
 
 ---- SYNCHRONIZATION ----
 
->> B6: Describe a potential race in thread_set_priority() and explain
->> how your implementation avoids it.  Can you use a lock to avoid
->> this race?
+>> B7: The "exec" system call returns -1 if loading the new executable
+>> fails, so it cannot return before the new executable has completed
+>> loading.  How does your code ensure this?  How is the load
+>> success/failure status passed back to the thread that calls "exec"?
+
+Loading is all done in the syscall and not on a seprate thread.
+
+>> B8: Consider parent process P with child process C.  How do you
+>> ensure proper synchronization and avoid race conditions when P
+>> calls wait(C) before C exits?  After C exits?  How do you ensure
+>> that all resources are freed in each case?  How about when P
+>> terminates without waiting, before C exits?  After C exits?  Are
+>> there any special cases?
+
+When a process ends, we keep the process ID marked as ended for a while
+so that any new requests to wait on it return immediantly. When a 
+process ends we go through our list of waits and notify the sumbitter
+of the wait that the wait has ended.
 
 ---- RATIONALE ----
 
->> B7: Why did you choose this design?  In what ways is it superior to
->> another design you considered?
+>> B9: Why did you choose to implement access to user memory from the
+>> kernel in the way that you did?
 
-We went with this design because it minimizes the amount of time deciding which thread to wake, which is going to be the most common operation. Calls to modify priority or block are
-comparitivly infrequent.
+Because this is a simple system and we are exreemly limited on implementation
+time because of jobs and GDC.
 
-			  ADVANCED SCHEDULER
-			  ==================
+>> B10: What advantages or disadvantages can you see to your design
+>> for file descriptors?
 
----- DATA STRUCTURES ----
+Advantages:
+- really simple so less moving parts to go wrong
+- Don't waste memory with the +2/-2 index
 
->> C1: Copy here the declaration of each new or changed `struct' or
->> `struct' member, global or static variable, `typedef', or
->> enumeration.  Identify the purpose of each in 25 words or less.
+Disadvantages:
+- Waits on I/O, which can be very slow
 
-we didn't add any new threads with this assignment.
 
----- ALGORITHMS ----
+>> B11: The default tid_t to pid_t mapping is the identity mapping.
+>> If you changed it, what advantages are there to your approach?
 
->> C2: Suppose threads A, B, and C have nice values 0, 1, and 2.  Each
->> has a recent_cpu value of 0.  Fill in the table below showing the
->> scheduling decision and the priority and recent_cpu values for each
->> thread after each given number of timer ticks:
+Did not change. Mapping is the same, but we check that access is legit.
 
-timer  recent_cpu    priority   thread
-ticks   A   B   C   A   B   C   to run
------  --  --  --  --  --  --   ------
- 0     0   0   0   63  61  59   A
- 4     4   0   0   62  61  59   A
- 8     8   0   0   61  61  59   A
-12     12  0   0   60  61  59   B
-16     12  4   0   60  60  59   B
-20     12  8   0   60  59  59   A
-24     16  8   0   59  59  59   A
-28     20  8   0   58  59  59   B
-32     20  12  0   58  58  59   C
-36     20  12  4   58  58  58   C
+			   SURVEY QUESTIONS
+			   ================
 
->> C3: Did any ambiguities in the scheduler specification make values
->> in the table uncertain?  If so, what rule did you use to resolve
->> them?  Does this match the behavior of your scheduler?
+Answering these questions is optional, but it will help us improve the
+course in future quarters.  Feel free to tell us anything you
+want--these questions are just to spur your thoughts.  You may also
+choose to respond anonymously in the course evaluations at the end of
+the quarter.
 
-No this assignment was VERY specific on what it wanted.
+>> In your opinion, was this assignment, or any one of the three problems
+>> in it, too easy or too hard?  Did it take too long or too little time?
 
->> C4: How is the way you divided the cost of scheduling between code
->> inside and outside interrupt context likely to affect performance?
+>> Did you find that working on a particular part of the assignment gave
+>> you greater insight into some aspect of OS design?
 
-most of our code runs without interrupts, but it is pretty lightweight
-so it shoulden't cause to many issues.
+>> Is there some particular fact or hint we should give students in
+>> future quarters to help them solve the problems?  Conversely, did you
+>> find any of our guidance to be misleading?
 
----- RATIONALE ----
+>> Do you have any suggestions for the TAs to more effectively assist
+>> students, either for future quarters or the remaining projects?
 
->> C5: Briefly critique your design, pointing out advantages and
->> disadvantages in your design choices.  If you were to have extra
->> time to work on this part of the project, how might you choose to
->> refine or improve your design?
+>> Any other comments?
 
-The assignment was rather restictive on the design asspects this time
-so there wasn't that much we could have changed. recent_CPU is 
-incremented every tick. It is also balanced every second based on the
-load recieved. Priority is recalculated every 4 ticks through:
-priority = MAX_PRIORITY - (recent_cpu / 4) - (nice * 2). This creates
-a system that prioritises threads that aren't nice while still lending
-some time to the nice threads. It also ends up automatically switching
-the running thread every 8 ticks between same priority threads leading
-to a simplified round robin aproach.
-
->> C6: The assignment explains arithmetic for fixed-point math in
->> detail, but it leaves it open to you to implement it.  Why did you
->> decide to implement it the way you did?  If you created an
->> abstraction layer for fixed-point math, that is, an abstract data
->> type and/or a set of functions or macros to manipulate fixed-point
->> numbers, why did you do so?  If not, why not?
-
-We implemented fixed point arithmetic by multiplying virtually all 
-constants by 100. It's a janky solution, but it should technically work.

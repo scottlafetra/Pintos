@@ -29,36 +29,60 @@ Alex Reily
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+// Entries for the swap table. Each entry contains a virtual address
+// prefix and the physical address it should be mapped to.
 struct st_entry
 {
-
+  struct hash_elem elem;
+  struct sema sema_lock; // To allow multiple reads but not when changing the table
+  u_int32 v_addr; // virtual page address
+  void* p_addr; // physical page address
 }
 
-struct swap_table
-{
-
-}
-
-struct pt_entry
-{
-
-}
-
-struct page_table
-{
-
-}
-
-struct ft_entry
-{
-
-}
-
+// "Table" that holds data for eviction. The accessed and dirty bits are accessed
+// through the relevant pintos functions, so no actually hash table is necessary
+// here.
 struct frame_table
 {
-
+  struct ft_entry* evict_next;
+  struct ft_entry* clock_ptr; // Used to turn off the access bit periodically
+  u_int32 stack_end;
 }
 
+// Tracks open and used memory in the swap partition. These are kept in
+// separate structs for quick access to the next free entry
+struct swap_table
+{
+  struct list open; // A table of ft_entry. Hashed by v_addr
+  struct hash used; // A table of ft_entry. Hashed by v_addr
+}
+
+// Page table entry. Maps virtual addresses to physical addresses
+struct pt_entry
+{
+  struct hash_elem elem;
+  u_int32 v_addr;
+  u_int32 p_addr;
+}
+
+// The page table. Just contains a hash table of elements for translation.
+struct page_table
+{
+  struct list table; // A table of pt_entry. Hashed by v_addr
+}
+
+// Supplemental page table entry. Tracks ownership of each page by process id.
+struct supt_entry
+{
+  struct hash_elem elem;
+  pid_t pid;
+}
+
+// The supplemental page table. Just contains a hash table of page ownership.
+struct sup_table
+{
+  struct list table; // A table of pt_entry. Hashed by v_addr
+}
 
 
 ---- ALGORITHMS ----

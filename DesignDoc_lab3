@@ -123,6 +123,34 @@ Reading from the frame table requires no synchronization, but if the frame isn't
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+// Entries for the swap table. Each entry contains a virtual address
+// prefix and the physical address it should be mapped to.
+struct st_entry
+{
+  struct hash_elem elem;
+  struct sema sema_lock; // To allow multiple reads but not when changing the table
+  u_int32 v_addr; // virtual page address
+  void* p_addr; // physical page address
+}
+
+// "Table" that holds data for eviction. The accessed and dirty bits are accessed
+// through the relevant pintos functions, so no actually hash table is necessary
+// here.
+struct frame_table
+{
+  struct ft_entry* evict_next;
+  struct ft_entry* clock_ptr; // Used to turn off the access bit periodically
+  u_int32 stack_end;
+}
+
+// Tracks open and used memory in the swap partition. These are kept in
+// separate structs for quick access to the next free entry
+struct swap_table
+{
+  struct list open; // A table of ft_entry. Hashed by v_addr
+  struct hash used; // A table of ft_entry. Hashed by v_addr
+}
+
 ---- ALGORITHMS ----
 
 >> B2: When a frame is required but none is free, some frame must be
@@ -167,6 +195,11 @@ Reading from the frame table requires no synchronization, but if the frame isn't
 >> possibility for deadlock but allows for high parallelism.  Explain
 >> where your design falls along this continuum and why you chose to
 >> design it this way.
+
+We use semaphore locks for each entry. This allows multiple processes
+can read the same entry, but requires that a process wait for all
+reads to finish before changing the table. We chose this method because
+it allowed for the most parallelism without unnessisary locks.
 
 			 MEMORY MAPPED FILES
 			 ===================

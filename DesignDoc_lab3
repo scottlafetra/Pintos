@@ -107,7 +107,7 @@ Dirty bits are owned by the kernel virtual page table which the frame table inte
 >> A4: When two user processes both need a new frame at the same time,
 >> how are races avoided?
 
-Reading from the frame table requires no synchronization, but if the frame isn't there or in the swap_table then we require locking a mutex before allocating a new frame. 
+We use a semaphore to allow any amount of threads to read at the same time if no thread is trying to write, but only one thread to have access if we are writing or evicting a frame. If a thread wants to write it is forced to wait until all reading threads have finished reading before it can write. In the meantime no other threads can start reading or writing until the writing thread is done. This protects us from writing at the same time as well as sneaking a read in right before a frame will be evicted. It also allows multiple threads to read simultaneously without locking each other out.
 
 ---- RATIONALE ----
 
@@ -227,28 +227,4 @@ it allowed for the most parallelism without unnessisary locks.
 >> that much of their implementation can be shared.  Explain why your
 >> implementation either does or does not share much of the code for
 >> the two situations.
-
-			   SURVEY QUESTIONS
-			   ================
-
-Answering these questions is optional, but it will help us improve the
-course in future quarters.  Feel free to tell us anything you
-want--these questions are just to spur your thoughts.  You may also
-choose to respond anonymously in the course evaluations at the end of
-the quarter.
-
->> In your opinion, was this assignment, or any one of the three problems
->> in it, too easy or too hard?  Did it take too long or too little time?
-
->> Did you find that working on a particular part of the assignment gave
->> you greater insight into some aspect of OS design?
-
->> Is there some particular fact or hint we should give students in
->> future quarters to help them solve the problems?  Conversely, did you
->> find any of our guidance to be misleading?
-
->> Do you have any suggestions for the TAs to more effectively assist
->> students, either for future quarters or the remaining projects?
-
->> Any other comments?
 

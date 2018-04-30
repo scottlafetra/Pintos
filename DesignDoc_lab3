@@ -33,7 +33,8 @@ Alex Reily
 // prefix and the physical address it should be mapped to.
 struct st_entry
 {
-  struct hash_elem elem;
+  struct hash_elem h_elem;
+  struct list_elem l_elem;
   struct sema sema_lock; // To allow multiple reads but not when changing the table
   u_int32 v_addr; // virtual page address
   void* p_addr; // physical page address
@@ -44,8 +45,8 @@ struct st_entry
 // here.
 struct frame_table
 {
-  struct ft_entry* evict_next;
-  struct ft_entry* clock_ptr; // Used to turn off the access bit periodically
+  struct st_entry* evict_next;
+  struct st_entry* clock_ptr; // Used to turn off the access bit periodically
   u_int32 stack_end;
 }
 
@@ -53,8 +54,8 @@ struct frame_table
 // separate structs for quick access to the next free entry
 struct swap_table
 {
-  struct list open; // A table of ft_entry. Hashed by v_addr
-  struct hash used; // A table of ft_entry. Hashed by v_addr
+  struct list open; // A table of st_entry. Hashed by v_addr
+  struct hash used; // A table of st_entry. Hashed by v_addr
 }
 
 // Page table entry. Maps virtual addresses to physical addresses
@@ -209,6 +210,22 @@ it allowed for the most parallelism without unnessisary locks.
 >> C1: Copy here the declaration of each new or changed `struct' or
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
+
+// Memory map entry.
+struct m_map_entry
+{
+  struct hash_elem elem;
+  uint_t p_addr;
+}
+
+// A struct for holding a memory mapped file. We keep track of the
+// size so when we evict the pages we only write the bits necessary
+// to the file.
+struct m_maped_file
+{
+  struct hash used_pages; // A table of pt_entry. Hashed by v_addr
+  size_t size; // file size
+}
 
 ---- ALGORITHMS ----
 

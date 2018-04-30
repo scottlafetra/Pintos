@@ -90,14 +90,24 @@ struct sup_table
 >> A2: In a few paragraphs, describe your code for locating the frame,
 >> if any, that contains the data of a given page.
 
+A user program asks for a page by it's virtual address. This goes to the (virtual) page_table where it is mapped to the correct frame index of the frame_table.
+	If the page is on the frame_table we return it.
+If the page isn't on the frame_table then we check the swap table.
+	If it is on the swap then we allocate a new frame for it on the frame_table, return it's address to the user program, and then free the swap slot. 
+	If it isn't on the swap then we go back to the frame_table and we grab the data from the hard drive, allocating a new space for it on the frame_table. We then return it.
+
 >> A3: How does your code coordinate accessed and dirty bits between
 >> kernel and user virtual addresses that alias a single frame, or
 >> alternatively how do you avoid the issue?
+
+Dirty bits are owned by the kernel virtual page table which the frame table interacts with. The frame table reads these bits from the kernel virtual page table and evicts based on that.
 
 ---- SYNCHRONIZATION ----
 
 >> A4: When two user processes both need a new frame at the same time,
 >> how are races avoided?
+
+Reading from the frame table requires no synchronization, but if the frame isn't there or in the swap_table then we require locking a mutex before allocating a new frame. 
 
 ---- RATIONALE ----
 

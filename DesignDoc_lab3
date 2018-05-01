@@ -9,7 +9,7 @@
 >> Fill in the names and email addresses of your group members.
 
 Scott La Fetra
-Alex Reily
+Alex Riley
 
 ---- PRELIMINARIES ----
 
@@ -115,6 +115,8 @@ We use a semaphore to allow any amount of threads to read at the same time if no
 >> A5: Why did you choose the data structure(s) that you did for
 >> representing virtual-to-physical mappings?
 
+
+
 		       PAGING TO AND FROM DISK
 		       =======================
 
@@ -157,13 +159,19 @@ struct swap_table
 >> B2: When a frame is required but none is free, some frame must be
 >> evicted.  Describe your code for choosing a frame to evict.
 
+We are using the clock method for eviction. We keep track of two pointers to frames evict_next and clock_ptr. Whenever we a new frame but we are out of memory we move the evict_next up until we find a frame that isn't accessed (which we check in the kernel virtual page table). We evict the frame that hasn't been accessed since the clock_ptr passed it. We also move up the clock_ptr at the same time changing all frames we pass over to be non-accessed. 
+
 >> B3: When a process P obtains a frame that was previously used by a
 >> process Q, how do you adjust the page table (and any other data
 >> structures) to reflect the frame Q no longer has?
 
+
+
 >> B4: Explain your heuristic for deciding whether a page fault for an
 >> invalid virtual address should cause the stack to be extended into
 >> the page that faulted.
+
+
 
 ---- SYNCHRONIZATION ----
 
@@ -172,21 +180,29 @@ struct swap_table
 >> textbook for an explanation of the necessary conditions for
 >> deadlock.)
 
+We only lock on write, and a thread shouldn't do anything else while writing. We also only use one semaphore per frame so there shouldn't be any oppertunity for deadlocks simply by the fact that threads only have one lock at a time. 
+
 >> B6: A page fault in process P can cause another process Q's frame
 >> to be evicted.  How do you ensure that Q cannot access or modify
 >> the page during the eviction process?  How do you avoid a race
 >> between P evicting Q's frame and Q faulting the page back in?
+
+We use a semaphore to allow any amount of threads to read at the same time if no thread is trying to write, but only one thread to have access if we are writing or evicting a frame. If a thread wants to write it is forced to wait until all reading threads have finished reading before it can write. In the meantime no other threads can start reading or writing until the writing thread is done. This protects us from writing at the same time as well as sneaking a read in right before a frame will be evicted. It also allows multiple threads to read simultaneously without locking each other out.
 
 >> B7: Suppose a page fault in process P causes a page to be read from
 >> the file system or swap.  How do you ensure that a second process Q
 >> cannot interfere by e.g. attempting to evict the frame while it is
 >> still being read in?
 
+We keep frames that are being read separate, and they are only added to the master table after they are fully read in. 
+
 >> B8: Explain how you handle access to paged-out pages that occur
 >> during system calls.  Do you use page faults to bring in pages (as
 >> in user programs), or do you have a mechanism for "locking" frames
 >> into physical memory, or do you use some other design?  How do you
 >> gracefully handle attempted accesses to invalid virtual addresses?
+
+We check the frame table, then swap, then all open files open for that process for the frame in question. If that faults then we take the frame in from Disk. Invalid pages are weeded out in the virtual page table as an invalid page will not be listed. In that case we just throw the error an error.
 
 ---- RATIONALE ----
 

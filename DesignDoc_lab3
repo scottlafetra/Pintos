@@ -216,7 +216,7 @@ We check the frame table, then swap, then all open files open for that process f
 We use semaphore locks for each entry. This allows multiple processes
 can read the same entry, but requires that a process wait for all
 reads to finish before changing the table. We chose this method because
-it allowed for the most parallelism without unnessisary locks.
+it allowed for the most parallelism without unnecessary locks.
 
 			 MEMORY MAPPED FILES
 			 ===================
@@ -249,8 +249,12 @@ struct m_maped_file
 >> memory subsystem.  Explain how the page fault and eviction
 >> processes differ between swap pages and other pages.
 
+Each thread has it's own list of open m_maped_file structs that each contain a hashmap of all of the virtual addresses of the frames it contains. These are fundamentally no different then other user frames when it comes to the frame table.
+
 >> C3: Explain how you determine whether a new file mapping overlaps
 >> any existing segment.
+
+Since the assignment specified that we didn't have to deal with multiple threads having the same file open at the same time our plan merely opens a new copy into memory of each file that is asked for regardless of wether or not there already is an instance of that file open. The files will clobber each other on write, but otherwise there shouldn't be any issues.
 
 ---- RATIONALE ----
 
@@ -260,4 +264,6 @@ struct m_maped_file
 >> that much of their implementation can be shared.  Explain why your
 >> implementation either does or does not share much of the code for
 >> the two situations.
+
+The frame_table sees both the same when read, and they are stored together. The only difference is in the functions to grab the data from the disk, which are specific to the kind of data (data vs file), and on eviction in which we merely keep track of whether the frame is part of a file in the frame_table and use the correct eviction scheme based on that.
 

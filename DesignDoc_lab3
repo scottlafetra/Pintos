@@ -1,7 +1,7 @@
-       	       	    +---------------------------+
-		    |		CS 140		|
+       	    +---------------------------+
+		    |		CS 140		        |
 		    | PROJECT 3: VIRTUAL MEMORY	|
-		    |	   DESIGN DOCUMENT	|
+		    |	   DESIGN DOCUMENT	    |
 		    +---------------------------+
 
 ---- GROUP ----
@@ -115,7 +115,7 @@ We use a semaphore to allow any amount of threads to read at the same time if no
 >> A5: Why did you choose the data structure(s) that you did for
 >> representing virtual-to-physical mappings?
 
-
+Using arrays would waste memory as they would often be very sparsely populated. Lists would be to slow to index. A tree would definitely be the all around most efficient choice, but the assignment document suggests avoiding them as they add a lot of extra work for not that much efficiency. In the end we decided to store the data in hash maps because they allow indexing while also allowing infinite expandability. 
 
 		       PAGING TO AND FROM DISK
 		       =======================
@@ -165,13 +165,13 @@ We are using the clock method for eviction. We keep track of two pointers to fra
 >> process Q, how do you adjust the page table (and any other data
 >> structures) to reflect the frame Q no longer has?
 
-
+The virtual page table will be updated such that Q's virtual address no longer maps to a frame on the frame table. If Q asks to read that frame again it will page fault off the virtual page table and the frame table will go get that resource again (likely from the swap).
 
 >> B4: Explain your heuristic for deciding whether a page fault for an
 >> invalid virtual address should cause the stack to be extended into
 >> the page that faulted.
 
-
+invalid addresses should fault on the virtual page table, and thus we shouldn't have to worry about i allocating stack space.
 
 ---- SYNCHRONIZATION ----
 
@@ -182,7 +182,7 @@ We are using the clock method for eviction. We keep track of two pointers to fra
 
 We only lock on write, and a thread shouldn't do anything else while writing. We also only use one semaphore per frame so there shouldn't be any oppertunity for deadlocks simply by the fact that threads only have one lock at a time. 
 
->> B6: A page fault in process P can cause another process Q's frame
+>> B6: A page fault in process P can cause another process Q's frame 
 >> to be evicted.  How do you ensure that Q cannot access or modify
 >> the page during the eviction process?  How do you avoid a race
 >> between P evicting Q's frame and Q faulting the page back in?
